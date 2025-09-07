@@ -1,102 +1,64 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
+    <!-- Header -->
+    <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-btn
           flat
           dense
           round
           icon="menu"
+          @click="leftOpen = !leftOpen"
           aria-label="Menu"
-          @click="toggleLeftDrawer"
         />
-
-        <q-toolbar-title>
-          Quasar App
-        </q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
+        <q-toolbar-title>Studio Dashboard</q-toolbar-title>
+        <q-space />
+        <q-btn flat dense icon="logout" label="Logout" @click="handleLogout" />
       </q-toolbar>
     </q-header>
 
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-    >
-      <q-list>
-        <q-item-label
-          header
+    <!-- Left Drawer (Sidebar) -->
+    <q-drawer v-model="leftOpen" show-if-above bordered :width="240">
+      <div class="q-pa-md text-grey-8 text-subtitle2">Navigation</div>
+      <q-list padding>
+        <q-item
+          v-for="item in menu"
+          :key="item.label"
+          :to="item.to"
+          clickable
+          v-ripple
+          :active="$route.name === (item.to as any).name"
+          active-class="bg-primary text-white"
         >
-          Essential Links
-        </q-item-label>
-
-        <EssentialLink
-          v-for="link in linksList"
-          :key="link.title"
-          v-bind="link"
-        />
+          <q-item-section avatar>
+            <q-icon :name="item.icon" />
+          </q-item-section>
+          <q-item-section>{{ item.label }}</q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
 
+    <!-- Page Container -->
     <q-page-container>
       <router-view />
     </q-page-container>
   </q-layout>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+<script setup lang="ts">
+import { ref } from "vue";
+import { useAuthStore } from "src/stores/auth";
+import { useRouter } from "vue-router";
+import { MAIN_MENU } from "src/constants/menu";
 
-const linksList = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev'
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework'
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev'
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev'
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev'
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev'
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev'
-  }
-]
+const leftOpen = ref(true);
+const menu = MAIN_MENU;
 
-const leftDrawerOpen = ref(false)
+const auth = useAuthStore();
+const router = useRouter();
 
-function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value
+function handleLogout() {
+  auth.logout();
+  router.replace("/login");
 }
 </script>
