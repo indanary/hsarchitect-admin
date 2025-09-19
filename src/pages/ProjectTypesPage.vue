@@ -147,7 +147,7 @@ const columns: QTableColumn[] = [
 async function fetchList() {
   loading.value = true;
   try {
-    const { data } = await api.get<Row[]>("/admin/project-types", {
+    const { data } = await api.get<Row[]>("/project-types", {
       params: q.value ? { q: q.value } : undefined,
     });
     rows.value = data;
@@ -194,12 +194,12 @@ async function save() {
   saving.value = true;
   try {
     if (dialog.value.mode === "create") {
-      await api.post("/admin/project-types", {
+      await api.post("/project-types", {
         project_type: form.value.project_type.trim(),
       });
       $q.notify({ type: "positive", message: "Created" });
     } else {
-      await api.patch(`/admin/project-types/${dialog.value.editingId}`, {
+      await api.patch(`/project-types/${dialog.value.editingId}`, {
         project_type: form.value.project_type.trim(),
       });
       $q.notify({ type: "positive", message: "Saved" });
@@ -234,7 +234,7 @@ function confirmDelete(row: Row) {
 async function doDelete() {
   deleting.value = true;
   try {
-    await api.delete(`/admin/project-types/${confirm.value.id}`);
+    await api.delete(`/project-types/${confirm.value.id}`);
     $q.notify({ type: "positive", message: "Deleted" });
     confirm.value.open = false;
     await fetchList();

@@ -204,7 +204,7 @@ function typeLabel(id: number | null) {
 }
 async function loadTypes() {
   try {
-    const { data } = await api.get<ProjectType[]>("/admin/project-types");
+    const { data } = await api.get<ProjectType[]>("/project-types");
     typeOptions.value = data;
   } catch (e: any) {
     notifyError(e, "Failed to load project types");
