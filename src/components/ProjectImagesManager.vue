@@ -49,7 +49,7 @@
           >
             <q-card bordered>
               <q-img
-                :src="img.file_path"
+                :src="img.file_url"
                 :ratio="4 / 3"
                 :alt="img.alt || 'image'"
               />
@@ -102,6 +102,7 @@ import { api } from "src/boot/axios";
 type ProjectImage = {
   id: number;
   file_path: string; // will be absolute after mapping
+  file_url: string;
   alt: string | null;
   sort_order: number;
 };
