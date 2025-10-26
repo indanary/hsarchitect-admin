@@ -1,0 +1,70 @@
+# .github/workflows/deploy.yml  (in hsarchitect-admin repo)
+name: Build & Publish Admin
+
+on:
+    workflow_dispatch:
+        inputs:
+            deploy:
+                description: "Push compiled admin to compiled-admin branch"
+                required: false
+                default: "true"
+    push:
+        branches: ["prod"] # optional: auto-publish on push to prod
+
+permissions:
+    contents: write
+
+jobs:
+    build-publish:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+              with: {fetch-depth: 1}
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  cache: "npm"
+
+            - name: Install
+              run: npm ci
+
+            - name: Build admin
+              run: npm run build
+              # if your admin outputs to "build" directory, change PUBLISH_DIR below
+
+            - name: Sanity check
+              run: |
+                  test -d dist && echo "dist folder exists." || (echo "Missing dist/" && exit 1)
+                  [ "$(ls -A dist | wc -l)" -gt 0 ] || (echo "dist is empty" && exit 1)
+
+            - name: Publish dist/ to compiled-admin
+              if: >
+                  (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true') || github.event_name == 'push'
+
+
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  BRANCH="compiled-admin"
+                  PUBLISH_DIR="dist"
+
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+
+                  git fetch origin $BRANCH || true
+
+                  rm -rf .publish && mkdir -p .publish
+                  cp -a "$PUBLISH_DIR/." .publish/
+
+                  cd .publish
+                  git init
+                  git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+                  git checkout -b "$BRANCH"
+                  echo > .nojekyll
+                  echo "Compiled admin branch. Do not edit." > README.md
+                  git add -A
+                  git commit -m "Publish compiled admin from ${GITHUB_SHA} ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))"
+                  git push -f origin "$BRANCH"
