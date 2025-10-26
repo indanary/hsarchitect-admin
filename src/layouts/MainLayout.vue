@@ -11,7 +11,7 @@
           @click="leftOpen = !leftOpen"
           aria-label="Menu"
         />
-        <q-toolbar-title>Studio Dashboard</q-toolbar-title>
+        <q-toolbar-title></q-toolbar-title>
         <q-space />
         <q-btn flat dense icon="logout" label="Logout" @click="handleLogout" />
       </q-toolbar>
@@ -19,7 +19,7 @@
 
     <!-- Left Drawer (Sidebar) -->
     <q-drawer v-model="leftOpen" show-if-above bordered :width="240">
-      <div class="q-pa-md text-grey-8 text-subtitle2">Navigation</div>
+      <div class="q-pa-md text-grey-8 text-subtitle2">HSArchitect</div>
       <q-list padding>
         <q-item
           v-for="item in menu"

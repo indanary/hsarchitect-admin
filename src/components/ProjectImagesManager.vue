@@ -4,11 +4,19 @@
     <q-card>
       <q-bar class="bg-grey-2">
         <div class="text-subtitle1">
-          Images — Project #{{ projectId ?? "—" }}
+          Images — Project {{ projectTitle ?? "—" }}
         </div>
         <q-space />
-        <q-btn flat dense icon="close" v-close-popup />
+        <q-btn flat dense icon="close" v-close-popup :disable="uploading" />
       </q-bar>
+
+      <!-- Upload progress -->
+      <q-linear-progress
+        v-if="uploading"
+        indeterminate
+        color="primary"
+        class="q-mb-none"
+      />
 
       <q-card-section class="q-pt-md">
         <div class="row q-col-gutter-md items-center">
@@ -18,18 +26,24 @@
               type="file"
               multiple
               accept="image/*"
+              :disabled="loading || uploading"
               @change="uploadFiles"
             />
             <div class="text-caption text-grey-7 q-mt-xs">
-              Select 1–10 images. They’ll upload immediately.
+              Select up to <b>3</b> images. They’ll upload immediately.
             </div>
           </div>
-          <div class="col-auto">
+          <div class="col-auto row items-center q-gutter-sm">
+            <div v-if="uploading" class="row items-center q-gutter-xs">
+              <q-spinner size="sm" />
+              <span class="text-caption">Uploading…</span>
+            </div>
             <q-btn
               outline
               icon="refresh"
               label="Refresh"
               :loading="loading"
+              :disable="uploading"
               @click="loadImages"
             />
           </div>
@@ -54,20 +68,31 @@
                 :alt="img.alt || 'image'"
               />
               <q-card-section class="q-gutter-sm">
-                <q-input v-model="img.alt" dense outlined label="Alt text" />
+                <q-input
+                  v-model="img.alt"
+                  dense
+                  outlined
+                  label="Alt text"
+                  :disable="uploading || loading"
+                />
                 <q-input
                   v-model.number="img.sort_order"
                   dense
                   outlined
                   type="number"
                   label="Sort order"
+                  :disable="uploading || loading"
+                  :min="1"
+                  @update:model-value="(val) => enforcePositiveSort(img, val)"
                 />
+
                 <div class="row q-gutter-sm">
                   <q-btn
                     dense
                     color="primary"
                     icon="save"
                     label="Save"
+                    :disable="uploading || loading"
                     @click="saveImageMeta(img)"
                   />
                   <q-btn
@@ -76,6 +101,7 @@
                     flat
                     icon="delete"
                     label="Delete"
+                    :disable="uploading || loading"
                     @click="deleteImage(img)"
                   />
                 </div>
@@ -113,6 +139,7 @@ type ProjectDetailWithImages = {
 const props = defineProps<{
   modelValue: boolean;
   projectId: number | null;
+  projectTitle: string | null;
 }>();
 const emit = defineEmits<{
   (e: "update:modelValue", v: boolean): void;
@@ -127,6 +154,7 @@ const internalShow = computed({
 });
 
 const loading = ref(false);
+const uploading = ref(false); // NEW: uploading state
 const items = ref<ProjectImage[]>([]);
 const fileInput = ref<HTMLInputElement>();
 
@@ -148,6 +176,7 @@ async function loadImages() {
     items.value = (data.images || []).map((x: any) => ({
       ...x,
       file_path: toAbsUrl(x.file_path), // <-- make absolute here
+      file_url: x.file_url,
       alt: x.alt ?? "",
     }));
   } catch (e: any) {
@@ -160,9 +189,23 @@ async function loadImages() {
 async function uploadFiles(ev: Event) {
   const input = ev.target as HTMLInputElement;
   if (!input.files || !props.projectId) return;
+
+  // Enforce max 3 files per selection
+  const files = Array.from(input.files);
+  if (files.length > 3) {
+    $q.notify({
+      type: "warning",
+      message: "You can upload at most 3 images at a time.",
+    });
+    input.value = ""; // reset selection
+    return;
+  }
+
   const fd = new FormData();
-  Array.from(input.files).forEach((f) => fd.append("files", f));
+  files.forEach((f) => fd.append("files", f));
+
   try {
+    uploading.value = true; // start uploading state
     await api.post(`/projects/admin/${props.projectId}/images`, fd, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -172,6 +215,8 @@ async function uploadFiles(ev: Event) {
     emit("changed");
   } catch (e: any) {
     notifyError(e, "Upload failed");
+  } finally {
+    uploading.value = false; // stop uploading state
   }
 }
 
@@ -205,6 +250,19 @@ async function deleteImage(img: ProjectImage) {
 function notifyError(e: any, fallback = "Error") {
   const msg = e?.response?.data?.error || e?.message || fallback;
   $q.notify({ type: "negative", message: msg });
+}
+
+function enforcePositiveSort(img: ProjectImage, val: number | string) {
+  const num = Number(val);
+  if (!Number.isFinite(num) || num < 1) {
+    img.sort_order = 1;
+    $q.notify({
+      type: "warning",
+      message: "Sort order must be at least 1.",
+    });
+  } else {
+    img.sort_order = num;
+  }
 }
 
 /* When dialog opens, load images */

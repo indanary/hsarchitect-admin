@@ -12,7 +12,7 @@
         debounce="300"
         class="q-mr-sm"
         style="width: 260px"
-        placeholder="Search title, location, scope…"
+        placeholder="Search title"
         @update:model-value="fetchList"
       >
         <template #prepend><q-icon name="search" /></template>
@@ -54,11 +54,7 @@
 
       <template #body-cell-status="props">
         <q-td :props="props">
-          <q-badge
-            :color="props.row.status === 'published' ? 'positive' : 'grey-7'"
-          >
-            {{ props.row.status }}
-          </q-badge>
+          {{ props.row.status }}
         </q-td>
       </template>
 
@@ -69,7 +65,7 @@
             flat
             round
             icon="image"
-            @click="openImages(props.row.id)"
+            @click="openImages(props.row.id, props.row.title)"
           />
           <q-btn dense flat round icon="edit" @click="openEdit(props.row.id)" />
           <q-btn
@@ -97,6 +93,7 @@
     <ProjectImagesManager
       v-model="imagesOpen"
       :project-id="imagesProjectId"
+      :project-title="imagesProjectTitle"
       @changed="onImagesChanged"
     />
 
@@ -252,8 +249,10 @@ async function onSaved() {
 /* Images manager trigger */
 const imagesOpen = ref(false);
 const imagesProjectId = ref<number | null>(null);
-function openImages(projectId: number) {
+const imagesProjectTitle = ref<string | null>(null);
+function openImages(projectId: number, projectTitle: string) {
   imagesProjectId.value = projectId;
+  imagesProjectTitle.value = projectTitle;
   imagesOpen.value = true;
 }
 async function onImagesChanged() {

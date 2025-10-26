@@ -4,14 +4,6 @@
       <div class="text-h6">Studio</div>
       <q-space />
       <q-btn
-        dense
-        outline
-        icon="refresh"
-        label="Reset"
-        :disable="saving || loading"
-        @click="resetFromServer"
-      />
-      <q-btn
         color="primary"
         class="q-ml-sm"
         dense
@@ -46,10 +38,6 @@
         :toolbar="toolbar"
         placeholder="Write content here…"
       />
-      <div class="text-caption text-grey-7 q-mt-sm">
-        This editor stores <b>HTML</b>. Sanitize on the public site before
-        rendering.
-      </div>
     </div>
 
     <q-separator class="q-my-lg" />

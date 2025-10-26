@@ -5,9 +5,6 @@
       You're logged in as <b>{{ auth.user?.email }}</b
       >.
     </div>
-    <div class="text-caption text-grey-7 q-mt-md">
-      Use the top nav or sidebar (when you add it) to manage content.
-    </div>
   </q-page>
 </template>
 

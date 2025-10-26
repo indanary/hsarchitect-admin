@@ -88,10 +88,6 @@
                 ['removeFormat'],
               ]"
             />
-            <div class="text-caption text-grey-7 q-mt-xs">
-              This stores raw HTML. Sanitize on the public site before
-              rendering.
-            </div>
           </div>
         </div>
       </q-card-section>
