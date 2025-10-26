@@ -25,15 +25,14 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 1
+              with: {fetch-depth: 1}
 
             - uses: actions/setup-node@v4
               with:
                   node-version: "20"
                   cache: "npm"
 
-            # Rollup optional-native fix (same as main): rebuild lockfile on runner
+            # Safer on Linux for optional native deps
             - name: Clean install (Linux)
               run: |
                   rm -rf node_modules package-lock.json
@@ -41,15 +40,13 @@ jobs:
 
             - name: Build admin
               run: npm run build
-              # If your admin outputs to "build" instead of "dist",
-              # change PUBLISH_DIR below to "build"
 
-            - name: Sanity check
+            - name: Sanity check (expect Quasar output in dist/spa)
               run: |
-                  test -d dist && echo "dist folder exists." || (echo "Missing dist/ (adjust if your output dir is 'build')" && exit 1)
-                  [ "$(ls -A dist | wc -l)" -gt 0 ] || (echo "dist is empty" && exit 1)
+                  test -d dist/spa && echo "dist/spa exists." || (echo "Missing dist/spa/ (adjust if your output dir differs)" && exit 1)
+                  [ "$(ls -A dist/spa | wc -l)" -gt 0 ] || (echo "dist/spa is empty" && exit 1)
 
-            - name: Publish dist/ to compiled-admin
+            - name: Publish dist/spa to compiled-admin
               if: >
                   (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true') || github.event_name == 'push'
 
@@ -59,11 +56,10 @@ jobs:
               run: |
                   set -euo pipefail
                   BRANCH="compiled-admin"
-                  PUBLISH_DIR="dist"
+                  PUBLISH_DIR="dist/spa"
                   GIT_NAME="github-actions[bot]"
                   GIT_EMAIL="github-actions[bot]@users.noreply.github.com"
 
-                  # Prepare clean publish dir
                   rm -rf .publish && mkdir -p .publish
                   cp -a "$PUBLISH_DIR/." .publish/
 
@@ -73,18 +69,13 @@ jobs:
                   git config user.name  "$GIT_NAME"
                   git config user.email "$GIT_EMAIL"
                   git checkout -b "$BRANCH"
-
-                  # Small convenience files
                   echo > .nojekyll
                   echo "Compiled admin branch. Do not edit." > README.md
-
                   git add -A
-                  # If nothing changed, exit cleanly
                   if git diff --cached --quiet; then
                     echo "No changes to publish."
                     exit 0
                   fi
-
                   git commit -m "Publish compiled admin from ${GITHUB_SHA} ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))"
                   git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
                   git push -f origin "$BRANCH"
