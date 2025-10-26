@@ -11,32 +11,42 @@ on:
     push:
         branches: ["prod"] # optional: auto-publish on push to prod
 
+concurrency:
+    group: admin-build-deploy-${{ github.ref_name }}
+    cancel-in-progress: true
+
 permissions:
     contents: write
 
 jobs:
     build-publish:
         runs-on: ubuntu-latest
+        timeout-minutes: 20
 
         steps:
             - uses: actions/checkout@v4
-              with: {fetch-depth: 1}
+              with:
+                  fetch-depth: 1
 
             - uses: actions/setup-node@v4
               with:
                   node-version: "20"
                   cache: "npm"
 
-            - name: Install
-              run: npm ci
+            # Rollup optional-native fix (same as main): rebuild lockfile on runner
+            - name: Clean install (Linux)
+              run: |
+                  rm -rf node_modules package-lock.json
+                  npm install --no-audit --no-fund
 
             - name: Build admin
               run: npm run build
-              # if your admin outputs to "build" directory, change PUBLISH_DIR below
+              # If your admin outputs to "build" instead of "dist",
+              # change PUBLISH_DIR below to "build"
 
             - name: Sanity check
               run: |
-                  test -d dist && echo "dist folder exists." || (echo "Missing dist/" && exit 1)
+                  test -d dist && echo "dist folder exists." || (echo "Missing dist/ (adjust if your output dir is 'build')" && exit 1)
                   [ "$(ls -A dist | wc -l)" -gt 0 ] || (echo "dist is empty" && exit 1)
 
             - name: Publish dist/ to compiled-admin
@@ -50,21 +60,31 @@ jobs:
                   set -euo pipefail
                   BRANCH="compiled-admin"
                   PUBLISH_DIR="dist"
+                  GIT_NAME="github-actions[bot]"
+                  GIT_EMAIL="github-actions[bot]@users.noreply.github.com"
 
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
-
-                  git fetch origin $BRANCH || true
-
+                  # Prepare clean publish dir
                   rm -rf .publish && mkdir -p .publish
                   cp -a "$PUBLISH_DIR/." .publish/
 
                   cd .publish
                   git init
-                  git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+                  git config init.defaultBranch "$BRANCH"
+                  git config user.name  "$GIT_NAME"
+                  git config user.email "$GIT_EMAIL"
                   git checkout -b "$BRANCH"
+
+                  # Small convenience files
                   echo > .nojekyll
                   echo "Compiled admin branch. Do not edit." > README.md
+
                   git add -A
+                  # If nothing changed, exit cleanly
+                  if git diff --cached --quiet; then
+                    echo "No changes to publish."
+                    exit 0
+                  fi
+
                   git commit -m "Publish compiled admin from ${GITHUB_SHA} ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))"
+                  git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
                   git push -f origin "$BRANCH"
