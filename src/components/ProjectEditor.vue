@@ -1,8 +1,9 @@
 <template>
   <q-dialog v-model="internalShow" persistent>
-    <q-card style="min-width: 720px; max-width: 95vw">
+    <q-card style="min-width: 760px; max-width: 95vw">
+      <!-- Header -->
       <q-card-section class="row items-center">
-        <div class="text-h6">
+        <div class="text-h6 text-weight-bold">
           {{ mode === "create" ? "New Project" : "Edit Project" }}
         </div>
         <q-space />
@@ -11,75 +12,113 @@
 
       <q-separator />
 
-      <!-- One-column, scrollable content -->
-      <q-card-section style="max-height: 70vh; overflow-y: auto">
-        <div class="column q-gutter-md">
-          <q-input
-            v-model="form.title"
-            label="Title *"
-            outlined
-            :disable="saving"
-            :rules="[(v) => (!!v && v.trim().length > 0) || 'Required']"
-            autofocus
-          />
-
-          <q-input
-            v-model="form.location"
-            label="Location"
-            outlined
-            :disable="saving"
-          />
-
-          <q-select
-            v-model="form.project_type_id"
-            :options="typeOptions"
-            option-value="id"
-            option-label="project_type"
-            emit-value
-            map-options
-            outlined
-            clearable
-            :use-input="false"
-            label="Project Type"
-            :disable="saving"
-          />
-
-          <q-input
-            v-model="form.scope"
-            label="Scope"
-            outlined
-            :disable="saving"
-          />
-
-          <q-input
-            v-model.number="form.year"
-            type="number"
-            label="Year"
-            outlined
-            :disable="saving"
-          />
-
-          <!-- Status as plain input -->
-          <q-input
-            v-model="form.status"
-            label="Status"
-            outlined
-            :disable="saving"
-          />
-
-          <q-input
-            v-model="form.area"
-            label="Area (e.g. 350 m²)"
-            outlined
-            :disable="saving"
-          />
-
+      <!-- FORM CONTENT -->
+      <q-card-section
+        style="max-height: 70vh; overflow-y: auto; position: relative"
+      >
+        <div class="column q-gutter-lg" :aria-busy="loading">
+          <!-- SECTION: GENERAL INFO -->
           <div>
-            <div class="text-subtitle2 q-mb-xs">Description (HTML)</div>
+            <div class="text-subtitle2 text-grey-7 q-mb-sm">
+              General Information
+            </div>
+
+            <div class="row q-col-gutter-md">
+              <div class="col-12">
+                <q-input
+                  v-model="form.title"
+                  label="Title *"
+                  outlined
+                  :disable="saving || loading"
+                  :rules="[(v) => (!!v && v.trim().length > 0) || 'Required']"
+                  autofocus
+                />
+              </div>
+
+              <div class="col-6">
+                <q-input
+                  v-model="form.location"
+                  label="Location"
+                  outlined
+                  :disable="saving || loading"
+                />
+              </div>
+
+              <div class="col-6">
+                <q-select
+                  v-model="form.project_type_id"
+                  :options="typeOptions"
+                  option-value="id"
+                  option-label="project_type"
+                  emit-value
+                  map-options
+                  outlined
+                  clearable
+                  label="Project Type"
+                  :disable="saving || loading"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: DETAILS -->
+          <div>
+            <div class="text-subtitle2 text-grey-7 q-mb-sm">
+              Project Details
+            </div>
+
+            <div class="row q-col-gutter-md">
+              <div class="col-6">
+                <q-input
+                  v-model="form.scope"
+                  label="Scope"
+                  outlined
+                  :disable="saving || loading"
+                />
+              </div>
+
+              <div class="col-3">
+                <q-input
+                  v-model.number="form.year"
+                  type="number"
+                  label="Year"
+                  outlined
+                  :disable="saving || loading"
+                  min="1900"
+                  max="2100"
+                />
+              </div>
+
+              <div class="col-3">
+                <q-input
+                  v-model="form.status"
+                  label="Status"
+                  outlined
+                  :disable="saving || loading"
+                />
+              </div>
+
+              <div class="col-6">
+                <q-input
+                  v-model="form.area"
+                  label="Area (e.g. 350 m²)"
+                  outlined
+                  :disable="saving || loading"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: DESCRIPTION -->
+          <div>
+            <div class="text-subtitle2 text-grey-7 q-mb-sm">
+              Description (HTML Content)
+            </div>
+
             <q-editor
               v-model="form.description"
               min-height="200px"
-              :readonly="saving"
+              :readonly="saving || loading"
               :toolbar="[
                 ['bold', 'italic', 'strike', 'underline'],
                 ['quote', 'unordered', 'ordered', 'outdent', 'indent'],
@@ -90,16 +129,28 @@
             />
           </div>
         </div>
+
+        <!-- Overlay loading indicator -->
+        <q-inner-loading :showing="loading">
+          <q-spinner-dots size="40px" color="primary" />
+        </q-inner-loading>
       </q-card-section>
 
       <q-separator />
 
+      <!-- ACTIONS -->
       <q-card-actions align="right">
-        <q-btn flat label="Cancel" :disable="saving" @click="close" />
+        <q-btn
+          flat
+          label="Cancel"
+          :disable="saving || loading"
+          @click="close"
+        />
         <q-btn
           color="primary"
           :loading="saving"
-          :label="mode === 'create' ? 'Create' : 'Save'"
+          :disable="loading"
+          :label="mode === 'create' ? 'Create Project' : 'Save Changes'"
           @click="save"
         />
       </q-card-actions>
@@ -120,21 +171,22 @@ type ProjectDetail = {
   project_type_id: number | null;
   scope: string | null;
   year: number | null;
-  status: string; // free-form input
+  status: string;
   area: string | null;
-  images?: Array<any>;
 };
+
 type ProjectType = { id: number; project_type: string };
 
 const props = defineProps<{
-  modelValue: boolean; // dialog visibility
+  modelValue: boolean;
   mode: "create" | "edit";
-  projectId: number | null; // used when mode === 'edit'
+  projectId: number | null;
   typeOptions: ProjectType[];
 }>();
+
 const emit = defineEmits<{
   (e: "update:modelValue", v: boolean): void;
-  (e: "saved", id: number): void; // notify parent to refresh
+  (e: "saved", id: number): void;
 }>();
 
 const $q = useQuasar();
@@ -144,6 +196,7 @@ const internalShow = computed({
   set: (v) => emit("update:modelValue", v),
 });
 
+/* FORM DATA */
 const form = reactive<ProjectDetail>({
   id: 0,
   title: "",
@@ -152,12 +205,14 @@ const form = reactive<ProjectDetail>({
   project_type_id: null,
   scope: "",
   year: null,
-  status: "", // no default term
+  status: "",
   area: "",
 });
 
 const saving = ref(false);
+const loading = ref(false);
 
+/* UTIL */
 function coerceDetail(d: Partial<ProjectDetail>) {
   form.id = (d.id as number) ?? 0;
   form.title = (d.title ?? "") as string;
@@ -166,12 +221,14 @@ function coerceDetail(d: Partial<ProjectDetail>) {
   form.project_type_id = (d.project_type_id ?? null) as number | null;
   form.scope = (d.scope ?? "") as string;
   form.year = Number.isFinite(d.year as any) ? (d.year as number) : null;
-  form.status = (d.status ?? "") as string; // no default term
+  form.status = (d.status ?? "") as string;
   form.area = (d.area ?? "") as string;
 }
 
+/* LOAD DATA WHEN EDITING */
 async function loadForEdit() {
   if (!props.projectId) return;
+  loading.value = true;
   try {
     const { data } = await api.get<ProjectDetail>(
       `/projects/admin/${props.projectId}`
@@ -179,6 +236,8 @@ async function loadForEdit() {
     coerceDetail(data);
   } catch (e: any) {
     notifyError(e, "Failed to load project");
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -195,6 +254,12 @@ async function save() {
     $q.notify({ type: "warning", message: "Title is required" });
     return;
   }
+
+  if (!form.project_type_id) {
+    $q.notify({ type: "warning", message: "Project type is required" });
+    return;
+  }
+
   saving.value = true;
   try {
     if (props.mode === "create") {
@@ -205,7 +270,7 @@ async function save() {
         project_type_id: form.project_type_id,
         scope: form.scope || null,
         year: form.year ?? null,
-        status: form.status, // free-form value
+        status: form.status,
         area: form.area || null,
       });
       emit("saved", data.id);
@@ -217,7 +282,7 @@ async function save() {
         project_type_id: form.project_type_id,
         scope: form.scope || null,
         year: form.year ?? null,
-        status: form.status, // free-form value
+        status: form.status,
         area: form.area || null,
       });
       emit("saved", props.projectId as number);
@@ -236,7 +301,7 @@ function notifyError(e: any, fallback = "Error") {
   $q.notify({ type: "negative", message: msg });
 }
 
-/* when dialog opens, init form */
+/* WATCH DIALOG OPENING */
 watch(
   () => props.modelValue,
   async (open) => {

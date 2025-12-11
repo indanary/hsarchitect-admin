@@ -1,61 +1,122 @@
-<!-- src/pages/ProjectTypesPage.vue -->
 <template>
-  <q-page padding>
-    <div class="row items-center q-mb-md">
-      <div class="text-h6">Project Types</div>
-      <q-space />
-      <q-input
-        v-model="q"
-        dense
-        outlined
-        debounce="300"
-        placeholder="Search project types…"
-        style="width: 260px"
-        @update:model-value="fetchList"
-      >
-        <template #prepend><q-icon name="search" /></template>
-        <template #append>
-          <q-btn v-if="q" flat round dense icon="close" @click="clearSearch" />
-        </template>
-      </q-input>
-      <q-btn
-        color="primary"
-        class="q-ml-sm"
-        icon="add"
-        label="New"
-        @click="openCreate"
-      />
+  <q-page padding class="column q-gutter-lg" :aria-busy="loading">
+    <!-- Header -->
+    <div
+      class="q-pa-sm q-mt-xs bg-yellow-2 text-yellow-9 rounded-borders text-body2"
+    >
+      ⚠️ Updates may take a few minutes to appear on
+      <strong>hsarchitect.id</strong> after saving.
     </div>
 
-    <q-table
-      :rows="rows"
-      :columns="columns"
-      row-key="id"
-      flat
-      bordered
-      :loading="loading"
-      :pagination="{ rowsPerPage: 0 }"
-      no-data-label="No project types yet"
-      no-results-label="No matches"
-    >
-      <template #body-cell-actions="props">
-        <q-td :props="props" class="q-gutter-xs">
-          <q-btn dense flat round icon="edit" @click="openEdit(props.row)" />
-          <q-btn
-            dense
-            flat
-            round
-            icon="delete"
-            color="negative"
-            @click="confirmDelete(props.row)"
-          />
-        </q-td>
-      </template>
-    </q-table>
+    <!-- Header -->
+    <div class="row items-center justify-between q-mb-md">
+      <div class="column">
+        <div class="text-h5 text-weight-bold">Project Types</div>
+        <div class="text-caption text-grey-7">
+          Define and manage categories for your projects
+        </div>
+      </div>
+
+      <div class="row items-center q-gutter-sm">
+        <q-input
+          v-model="q"
+          dense
+          outlined
+          debounce="300"
+          placeholder="Search project types…"
+          style="width: 260px"
+          @update:model-value="() => fetchList()"
+          :disable="loading"
+        >
+          <template #prepend><q-icon name="search" /></template>
+          <template #append>
+            <q-btn
+              v-if="q"
+              flat
+              round
+              dense
+              icon="close"
+              @click="clearSearch"
+              :disable="loading"
+            />
+          </template>
+        </q-input>
+
+        <q-btn
+          color="primary"
+          icon="add"
+          label="New Type"
+          unelevated
+          @click="openCreate"
+          :disable="loading"
+        />
+      </div>
+    </div>
+
+    <!-- Table wrapped in card -->
+    <q-card flat bordered>
+      <!-- top linear progress to show immediate activity when loading -->
+      <q-linear-progress v-if="loading" indeterminate class="q-mb-xs" />
+
+      <q-table
+        :rows="rows"
+        :columns="columns"
+        row-key="id"
+        flat
+        :loading="loading"
+        :pagination="{ rowsPerPage: 0 }"
+        separator="horizontal"
+        no-data-label="No project types yet"
+        no-results-label="No matches"
+      >
+        <!-- Project Type as a chip -->
+        <template #body-cell-project_type="props">
+          <q-td :props="props">
+            <q-chip
+              dense
+              square
+              color="grey-3"
+              text-color="grey-9"
+              class="text-capitalize"
+            >
+              {{ props.row.project_type }}
+            </q-chip>
+          </q-td>
+        </template>
+
+        <!-- Actions with tooltips -->
+        <template #body-cell-actions="props">
+          <q-td :props="props" class="q-gutter-xs text-right">
+            <q-btn
+              dense
+              flat
+              round
+              icon="edit"
+              color="primary"
+              @click="openEdit(props.row)"
+              :disable="loading"
+            >
+              <q-tooltip>Edit</q-tooltip>
+            </q-btn>
+            <q-btn
+              dense
+              flat
+              round
+              icon="delete"
+              color="negative"
+              @click="confirmDelete(props.row)"
+              :disable="loading"
+            >
+              <q-tooltip>Delete</q-tooltip>
+            </q-btn>
+          </q-td>
+        </template>
+      </q-table>
+    </q-card>
 
     <!-- Create / Edit dialog -->
     <q-dialog v-model="dialog.open" persistent>
-      <q-card style="min-width: 420px">
+      <q-card style="min-width: 420px; max-width: 90vw">
         <q-card-section class="row items-center">
           <div class="text-h6">
             {{
@@ -65,7 +126,14 @@
             }}
           </div>
           <q-space />
-          <q-btn icon="close" flat round dense v-close-popup />
+          <q-btn
+            icon="close"
+            flat
+            round
+            dense
+            v-close-popup
+            :disable="saving"
+          />
         </q-card-section>
 
         <q-separator />
@@ -93,6 +161,7 @@
             :loading="saving"
             :label="dialog.mode === 'create' ? 'Create' : 'Save'"
             @click="save"
+            :disable="saving"
           />
         </q-card-actions>
       </q-card>
@@ -106,12 +175,13 @@
           <div class="text-body2 q-mt-xs">This action cannot be undone.</div>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn flat label="Cancel" v-close-popup :disable="deleting" />
           <q-btn
             color="negative"
             label="Delete"
             :loading="deleting"
             @click="doDelete"
+            :disable="deleting"
           />
         </q-card-actions>
       </q-card>
@@ -120,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { QTableColumn, useQuasar } from "quasar";
 import { api } from "src/boot/axios";
 
@@ -128,7 +198,8 @@ type Row = { id: number; project_type: string };
 
 const $q = useQuasar();
 
-const loading = ref(false);
+// Start loading true so the UI immediately shows activity on first render
+const loading = ref(true);
 const rows = ref<Row[]>([]);
 const q = ref("");
 
@@ -144,8 +215,9 @@ const columns: QTableColumn[] = [
   { name: "actions", label: "", field: "actions", align: "right" },
 ];
 
-async function fetchList() {
-  loading.value = true;
+// fetchList supports a silent flag: when silent=true it won't toggle the global loading flag.
+async function fetchList(silent = false) {
+  if (!silent) loading.value = true;
   try {
     const { data } = await api.get<Row[]>("/project-types", {
       params: q.value ? { q: q.value } : undefined,
@@ -154,7 +226,7 @@ async function fetchList() {
   } catch (e: any) {
     notifyError(e, "Failed to load project types");
   } finally {
-    loading.value = false;
+    if (!silent) loading.value = false;
   }
 }
 
@@ -168,11 +240,7 @@ const dialog = ref<{
   open: boolean;
   mode: "create" | "edit";
   editingId: number | null;
-}>({
-  open: false,
-  mode: "create",
-  editingId: null,
-});
+}>({ open: false, mode: "create", editingId: null });
 const form = ref<{ project_type: string }>({ project_type: "" });
 const saving = ref(false);
 
@@ -251,6 +319,12 @@ function notifyError(e: any, fallback = "Error") {
   $q.notify({ type: "negative", message: msg });
 }
 
-/* boot */
-fetchList();
+// initial fetch: do a silent fetch so the loading state (true by default) remains until both boot tasks complete
+onMounted(async () => {
+  try {
+    await fetchList(true);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>

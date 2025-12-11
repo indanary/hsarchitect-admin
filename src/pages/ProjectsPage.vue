@@ -1,86 +1,167 @@
-<!-- src/pages/ProjectsPage.vue -->
+<!-- src/pages/ProjectsPage.vue (updated: improved initial loading UX) -->
 <template>
-  <q-page padding>
-    <!-- Header / actions -->
-    <div class="row items-center q-mb-md">
-      <div class="text-h6">Projects</div>
-      <q-space />
-      <q-input
-        v-model="q"
-        dense
-        outlined
-        debounce="300"
-        class="q-mr-sm"
-        style="width: 260px"
-        placeholder="Search title"
-        @update:model-value="fetchList"
-      >
-        <template #prepend><q-icon name="search" /></template>
-        <template #append>
-          <q-btn
-            v-if="q"
-            flat
-            round
-            dense
-            icon="close"
-            @click="
-              q = '';
-              fetchList();
-            "
-          />
-        </template>
-      </q-input>
-
-      <q-btn color="primary" icon="add" label="New" @click="openCreate" />
+  <q-page padding class="column q-gutter-lg" :aria-busy="loading">
+    <!-- Header -->
+    <div
+      class="q-pa-sm q-mt-xs bg-yellow-2 text-yellow-9 rounded-borders text-body2"
+    >
+      ⚠️ Updates may take a few minutes to appear on
+      <strong>hsarchitect.id</strong> after saving.
     </div>
 
+    <!-- Page Header -->
+    <div class="row items-center justify-between q-mb-md">
+      <div class="column">
+        <div class="text-h5 text-weight-bold">Projects</div>
+        <div class="text-caption text-grey-7">
+          Manage all architectural projects in your CMS
+        </div>
+      </div>
+
+      <div class="row items-center q-gutter-sm">
+        <!-- Search Box -->
+        <q-input
+          v-model="q"
+          dense
+          outlined
+          debounce="300"
+          placeholder="Search title"
+          @update:model-value="fetchList"
+          style="width: 260px"
+          :disable="loading"
+        >
+          <template #prepend>
+            <q-icon name="search" />
+          </template>
+
+          <template #append>
+            <q-btn
+              v-if="q"
+              flat
+              dense
+              round
+              icon="close"
+              @click="
+                q = '';
+                fetchList();
+              "
+              :disable="loading"
+            />
+          </template>
+        </q-input>
+
+        <!-- New Project Button -->
+        <q-btn
+          color="primary"
+          icon="add"
+          label="New Project"
+          unelevated
+          @click="openCreate"
+          :disable="loading"
+        />
+      </div>
+    </div>
+
+    <!-- Linear progress (prominent) -->
+    <!-- keep the linear progress visible immediately when loading is true -->
+    <q-linear-progress
+      v-if="loading"
+      indeterminate
+      color="primary"
+      class="q-mb-md"
+    />
+
     <!-- Table -->
-    <q-table
-      :rows="rows"
-      :columns="columns"
-      row-key="id"
-      flat
-      bordered
-      :loading="loading"
-      :pagination="{ rowsPerPage: 0 }"
-      no-data-label="No projects yet"
-      no-results-label="No matches"
-    >
-      <template #body-cell-project_type="props">
-        <q-td :props="props">
-          <span>{{ typeLabel(props.row.project_type_id) }}</span>
-        </q-td>
-      </template>
+    <q-card flat bordered class="q-pa-none relative-position">
+      <!-- Overlay loader: large spinner with dim backdrop -->
+      <q-inner-loading :showing="loading">
+        <div
+          class="row items-center justify-center column"
+          style="min-height: 220px"
+        >
+          <q-spinner-dots size="48px" color="primary" />
+          <div class="text-subtitle2 q-mt-md">Loading projects…</div>
+        </div>
+      </q-inner-loading>
 
-      <template #body-cell-status="props">
-        <q-td :props="props">
-          {{ props.row.status }}
-        </q-td>
-      </template>
+      <q-table
+        :rows="rows"
+        :columns="columns"
+        row-key="id"
+        :loading="loading"
+        :pagination="{ rowsPerPage: 0 }"
+        flat
+        separator="horizontal"
+        no-data-label="No projects yet"
+        no-results-label="No matches found"
+      >
+        <template #body-cell-project_type="props">
+          <q-td :props="props">
+            <q-chip
+              square
+              dense
+              color="grey-3"
+              text-color="grey-9"
+              class="text-uppercase"
+            >
+              {{ typeLabel(props.row.project_type_id) }}
+            </q-chip>
+          </q-td>
+        </template>
 
-      <template #body-cell-actions="props">
-        <q-td :props="props" class="q-gutter-xs">
-          <q-btn
-            dense
-            flat
-            round
-            icon="image"
-            @click="openImages(props.row.id, props.row.title)"
-          />
-          <q-btn dense flat round icon="edit" @click="openEdit(props.row.id)" />
-          <q-btn
-            dense
-            flat
-            round
-            icon="delete"
-            color="negative"
-            @click="confirmDelete(props.row.id)"
-          />
-        </q-td>
-      </template>
-    </q-table>
+        <template #body-cell-status="props">
+          <q-td :props="props">
+            <q-badge
+              :label="props.row.status"
+              color="blue-5"
+              class="q-px-sm q-py-xs text-uppercase"
+            />
+          </q-td>
+        </template>
 
-    <!-- Editor (create/edit) -->
+        <template #body-cell-actions="props">
+          <q-td :props="props" class="q-gutter-xs text-right">
+            <q-btn
+              dense
+              flat
+              round
+              icon="image"
+              color="primary"
+              @click="openImages(props.row.id, props.row.title)"
+              :disable="loading"
+            >
+              <q-tooltip>Manage Images</q-tooltip>
+            </q-btn>
+
+            <q-btn
+              dense
+              flat
+              round
+              icon="edit"
+              color="secondary"
+              @click="openEdit(props.row.id)"
+              :disable="loading"
+            >
+              <q-tooltip>Edit Project</q-tooltip>
+            </q-btn>
+
+            <q-btn
+              dense
+              flat
+              round
+              icon="delete"
+              color="negative"
+              @click="confirmDelete(props.row.id)"
+              :disable="loading"
+            >
+              <q-tooltip>Delete Project</q-tooltip>
+            </q-btn>
+          </q-td>
+        </template>
+      </q-table>
+    </q-card>
+
+    <!-- Editor Dialog -->
     <ProjectEditor
       v-model="editor.open"
       :mode="editor.mode"
@@ -89,7 +170,7 @@
       @saved="onSaved"
     />
 
-    <!-- Images manager (separate component) -->
+    <!-- Images Manager -->
     <ProjectImagesManager
       v-model="imagesOpen"
       :project-id="imagesProjectId"
@@ -97,17 +178,24 @@
       @changed="onImagesChanged"
     />
 
-    <!-- Delete confirm -->
+    <!-- Delete confirmation -->
     <q-dialog v-model="confirm.open">
       <q-card>
         <q-card-section>
           <div class="text-h6">Delete this project?</div>
-          <div class="text-body2 q-mt-xs">
-            This will also remove its images.
+          <div class="text-body2 text-grey-7 q-mt-xs">
+            This will also remove all associated images.
           </div>
         </q-card-section>
+
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn
+            flat
+            label="Cancel"
+            color="grey-7"
+            v-close-popup
+            :disable="confirm.loading"
+          />
           <q-btn
             color="negative"
             label="Delete"
@@ -127,6 +215,7 @@ import { api } from "src/boot/axios";
 import ProjectEditor from "src/components/ProjectEditor.vue";
 import ProjectImagesManager from "src/components/ProjectImagesManager.vue";
 
+// Types (unchanged)
 type ProjectRow = {
   id: number;
   title: string;
@@ -145,7 +234,8 @@ const $q = useQuasar();
 
 /* Search & list */
 const q = ref("");
-const loading = ref(false);
+// loading starts as true so the user sees an immediate indicator on first mount
+const loading = ref(true);
 const rows = ref<ProjectRow[]>([]);
 const columns: QTableColumn[] = [
   {
@@ -208,8 +298,11 @@ async function loadTypes() {
   }
 }
 
-async function fetchList() {
-  loading.value = true;
+// fetchList now accepts a `silent` flag. When silent=true it will NOT toggle `loading`.
+// This lets us control the global loading state explicitly during initial mount so
+// the user sees an immediate loading UI while both types and projects are fetched.
+async function fetchList(silent = false) {
+  if (!silent) loading.value = true;
   try {
     const params: any = {};
     if (q.value) params.q = q.value;
@@ -218,7 +311,7 @@ async function fetchList() {
   } catch (e: any) {
     notifyError(e, "Failed to load projects");
   } finally {
-    loading.value = false;
+    if (!silent) loading.value = false;
   }
 }
 
@@ -294,8 +387,16 @@ function notifyError(e: any, fallback = "Error") {
   $q.notify({ type: "negative", message: msg });
 }
 
+// onMounted: explicitly keep `loading` true while we load both types and project list
 onMounted(async () => {
-  await loadTypes();
-  await fetchList();
+  // keep loading = true (set as default) so the UI shows immediately
+  try {
+    await loadTypes();
+    // call fetchList in silent mode so we control the `loading` flag here
+    await fetchList(true);
+  } finally {
+    // initial load finished — hide global loader
+    loading.value = false;
+  }
 });
 </script>
