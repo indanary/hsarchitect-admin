@@ -220,16 +220,47 @@ async function uploadFiles(e: Event) {
   const files = Array.from((e.target as HTMLInputElement).files || []);
   if (!props.projectId || !files.length) return;
 
-  const fd = new FormData();
-  files.forEach((f) => fd.append("files", f));
-
   uploading.value = true;
+
   try {
-    await api.post(`/projects/admin/${props.projectId}/media`, fd);
+    // Split files
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    const videos = files.filter((f) => f.type === "video/mp4");
+
+    /* ---------- IMAGES (existing flow) ---------- */
+    if (images.length) {
+      const fd = new FormData();
+      images.forEach((f) => fd.append("files", f));
+
+      await api.post(`/projects/admin/${props.projectId}/media`, fd);
+    }
+
+    /* ---------- VIDEOS (new flow) ---------- */
+    for (const video of videos) {
+      const MAX_VIDEO_MB = 20;
+
+      if (video.size > MAX_VIDEO_MB * 1024 * 1024) {
+        $q.notify({
+          type: "warning",
+          message: `Video ${video.name} exceeds ${MAX_VIDEO_MB}MB`,
+        });
+        continue;
+      }
+
+      await uploadVideo(video);
+    }
+
     await loadMedia();
     emit("changed");
+  } catch (err: any) {
+    console.error(err);
+    $q.notify({
+      type: "negative",
+      message: "Upload failed",
+    });
   } finally {
     uploading.value = false;
+    if (fileInput.value) fileInput.value.value = "";
   }
 }
 
@@ -257,6 +288,36 @@ async function deleteItem(item: Item) {
   await api.delete(base);
   $q.notify({ type: "positive", message: "Deleted" });
   await loadMedia();
+}
+
+async function uploadVideo(file: File) {
+  if (!props.projectId) return;
+
+  // 1. Ask backend for signed upload URL
+  const { data } = await api.post(
+    `/projects/admin/${props.projectId}/media/video-upload-url`,
+    {
+      filename: file.name,
+      mimeType: file.type,
+    }
+  );
+
+  const { uploadUrl, path } = data;
+
+  // 2. Upload directly to Supabase
+  await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type,
+    },
+    body: file,
+  });
+
+  // 3. Confirm upload
+  await api.post(`/projects/admin/${props.projectId}/media/video-confirm`, {
+    path,
+    mimeType: file.type,
+  });
 }
 
 watch(
