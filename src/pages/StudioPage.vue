@@ -96,6 +96,38 @@ const form = ref({ description: "" });
 const loading = ref(true);
 const saving = ref(false);
 
+function dataWidthConversionPlugin(editor: any) {
+  const schema = editor.model.schema;
+
+  const imageTypes = ["imageBlock", "imageInline"];
+
+  imageTypes.forEach((type) => {
+    if (schema.isRegistered(type)) {
+      // ✅ extend only if exists
+      schema.extend(type, {
+        allowAttributes: ["dataWidth"],
+      });
+
+      editor.conversion.for("downcast").add((dispatcher: any) => {
+        dispatcher.on(
+          `attribute:dataWidth:${type}`,
+          (evt: any, data: any, conversionApi: any) => {
+            const viewWriter = conversionApi.writer;
+            const viewElement = conversionApi.mapper.toViewElement(data.item);
+
+            if (!viewElement) return;
+
+            const value = data.attributeNewValue;
+            if (!value) return;
+
+            viewWriter.setAttribute("data-width", value, viewElement);
+          }
+        );
+      });
+    }
+  });
+}
+
 // ================= UPLOAD =================
 function uploadAdapterPlugin(editor: any) {
   editor.plugins.get("FileRepository").createUploadAdapter = (loader: any) => {
@@ -116,7 +148,6 @@ function uploadAdapterPlugin(editor: any) {
     };
   };
 
-  // 👇 THIS PART FIXES THE SIZE AFTER INSERT
   editor.model.document.on("change:data", () => {
     const model = editor.model;
     const root = model.document.getRoot();
@@ -126,19 +157,16 @@ function uploadAdapterPlugin(editor: any) {
         if (child.name === "imageBlock") {
           const width = child.getAttribute("width");
 
-          // convert percentage → px (example)
-          if (width && width.includes("%")) {
+          if (!width) continue;
+
+          if (typeof width === "string" && width.includes("%")) {
             const percent = parseFloat(width);
+            const containerWidth = 700;
 
-            // assume base width 600px (your editor width)
-            const px = (percent / 100) * 600;
+            const px = Math.round((percent / 100) * containerWidth);
 
-            writer.setAttribute("width", `${px}px`, child);
-          }
-
-          // default if no width
-          if (!width) {
-            writer.setAttribute("width", "300px", child);
+            // ✅ store px
+            writer.setAttribute("dataWidth", px, child);
           }
         }
       }
@@ -168,6 +196,8 @@ const editorConfig = {
     ImageResize,
     ImageResizeEditing,
     ImageResizeHandles,
+
+    dataWidthConversionPlugin,
   ],
 
   toolbar: [
