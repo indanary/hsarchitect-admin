@@ -67,6 +67,12 @@ import {
   Paragraph,
   Bold,
   Italic,
+  Underline,
+  Heading,
+  Font,
+  Alignment,
+  BlockQuote,
+  List,
   Image,
   ImageToolbar,
   ImageUpload,
@@ -74,8 +80,6 @@ import {
   ImageResize,
   ImageResizeEditing,
   ImageResizeHandles,
-  Link,
-  List,
 } from "ckeditor5";
 
 const ckeditor = Ckeditor;
@@ -132,9 +136,13 @@ const editorConfig = {
   plugins: [
     Essentials,
     Paragraph,
+    Heading,
     Bold,
     Italic,
-    Link,
+    Underline,
+    Font,
+    Alignment,
+    BlockQuote,
     List,
     Image,
     ImageToolbar,
@@ -149,12 +157,26 @@ const editorConfig = {
     "undo",
     "redo",
     "|",
+
+    "heading",
+    "|",
+
+    "fontSize",
+    "|",
+
     "bold",
     "italic",
-    "link",
+    "underline",
+    "|",
+
+    "alignment",
+    "|",
+
     "bulletedList",
     "numberedList",
+    "blockQuote",
     "|",
+
     "imageUpload",
   ],
 
@@ -173,6 +195,11 @@ const editorConfig = {
   },
 
   extraPlugins: [uploadAdapterPlugin],
+
+  fontSize: {
+    options: [10, 12, 14, "default", 18, 20, 24, 28, 32],
+    supportAllValues: true,
+  },
 };
 
 // ================= API =================
@@ -206,7 +233,33 @@ watch(tab, (t) => loadStudio(t), { immediate: true });
 
 <style lang="scss">
 .ck-content {
-  min-height: 300px;
+  line-height: 1.7;
+}
+
+/* Paragraph spacing */
+.ck-content p {
+  margin: 0 0 1rem;
+}
+
+/* Headings */
+.ck-content h1,
+.ck-content h2,
+.ck-content h3 {
+  margin: 1.5rem 0 0.75rem;
+  font-weight: 600;
+}
+
+/* Lists */
+.ck-content ul,
+.ck-content ol {
+  margin: 0 0 1rem 1.25rem;
+}
+
+/* Blockquote */
+.ck-content blockquote {
+  border-left: 3px solid #ccc;
+  padding-left: 1rem;
+  margin: 1rem 0;
 }
 
 .ck-content img {
