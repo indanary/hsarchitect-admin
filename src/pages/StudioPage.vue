@@ -1,98 +1,52 @@
 <template>
-  <q-page padding class="column q-gutter-lg" :aria-busy="loading">
-    <!-- Header -->
-    <div
-      class="q-pa-sm q-mt-xs bg-yellow-2 text-yellow-9 rounded-borders text-body2"
-    >
+  <q-page padding class="column q-gutter-lg">
+    <div class="q-pa-sm bg-yellow-2 text-yellow-9 rounded-borders text-body2">
       ⚠️ Updates may take a few minutes to appear on
-      <strong>hsarchitect.id</strong> after saving.
+      <strong>hsarchitect.id</strong>
     </div>
 
     <div class="row items-center justify-between">
-      <div class="column">
+      <div>
         <div class="text-h5 text-weight-bold">Studio Content</div>
         <div class="text-caption text-grey-7">
-          Manage profile, philosophy, and achievements displayed on the website
+          Manage profile, philosophy, and achievements
         </div>
       </div>
 
       <q-btn
         color="primary"
-        dense
-        unelevated
         icon="save"
         :loading="saving"
-        :disable="loading || saving"
         label="Save Changes"
         @click="save"
       />
     </div>
 
-    <!-- Immediate top progress when loading -->
-    <q-linear-progress v-if="loading" indeterminate class="q-mt-sm q-mb-sm" />
+    <q-linear-progress v-if="loading" indeterminate />
 
-    <!-- Tabs -->
     <q-card flat bordered>
-      <q-tabs
-        v-model="tab"
-        dense
-        align="left"
-        active-color="primary"
-        indicator-color="primary"
-        class="bg-grey-1"
-      >
-        <q-tab name="profile" label="Profile" icon="badge" />
-        <q-tab name="philosophy" label="Philosophy" icon="lightbulb" />
-        <q-tab name="achievement" label="Achievement" icon="emoji_events" />
+      <q-tabs v-model="tab" dense>
+        <q-tab name="profile" label="Profile" />
+        <q-tab name="philosophy" label="Philosophy" />
+        <q-tab name="achievement" label="Achievement" />
       </q-tabs>
     </q-card>
 
-    <!-- Editor Section -->
+    <!-- EDITOR -->
     <q-card flat bordered>
-      <!-- Overlay loader to make load state more obvious -->
-      <q-inner-loading :showing="loading">
-        <div
-          class="row items-center justify-center column"
-          style="min-height: 300px"
-        >
-          <q-spinner-dots size="48px" />
-          <div class="text-subtitle2 q-mt-md">Loading content…</div>
-        </div>
-      </q-inner-loading>
-
       <q-card-section>
-        <div class="text-subtitle1 text-weight-medium q-mb-sm">
-          Content Editor
-        </div>
-        <div class="text-caption text-grey-7 q-mb-md">
-          Write formatted text using the toolbar below. This content will appear
-          on the website.
-        </div>
-
-        <q-editor
+        <ckeditor
+          :editor="editor"
           v-model="form.description"
-          :readonly="loading || saving"
-          min-height="300px"
-          :definitions="editorDefs"
-          :toolbar="toolbar"
-          placeholder="Write content here…"
+          :config="editorConfig"
         />
       </q-card-section>
     </q-card>
 
-    <!-- Preview Section -->
+    <!-- PREVIEW -->
     <q-card flat bordered>
       <q-card-section>
-        <div class="text-subtitle1 text-weight-medium q-mb-sm">Preview</div>
-        <div class="text-caption text-grey-7 q-mb-md">
-          Live preview of your content below:
-        </div>
-
-        <div
-          class="q-pa-md bg-grey-2 rounded-borders"
-          style="min-height: 150px; border: 1px solid #ddd"
-          v-html="form.description"
-        ></div>
+        <div class="ck-content" v-html="form.description" />
       </q-card-section>
     </q-card>
   </q-page>
@@ -102,53 +56,133 @@
 import { ref, watch } from "vue";
 import { useQuasar } from "quasar";
 import { api } from "src/boot/axios";
+import { Ckeditor } from "@ckeditor/ckeditor5-vue";
 
-type StudioType = "profile" | "philosophy" | "achievement";
-type StudioRow = {
-  data: { id: number; type: StudioType; description: string | null };
-};
+import "ckeditor5/ckeditor5.css";
+
+// ✅ CKEditor 5 (same as your working project)
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Bold,
+  Italic,
+  Image,
+  ImageToolbar,
+  ImageUpload,
+  ImageStyle,
+  ImageResize,
+  ImageResizeEditing,
+  ImageResizeHandles,
+  Link,
+  List,
+} from "ckeditor5";
+
+const ckeditor = Ckeditor;
+const editor = ClassicEditor;
 
 const $q = useQuasar();
 
-const tab = ref<StudioType>("profile");
-const form = ref<{ description: string }>({ description: "" });
+type StudioType = "profile" | "philosophy" | "achievement";
 
-// start loading = true so users see immediate feedback
+const tab = ref<StudioType>("profile");
+const form = ref({ description: "" });
+
 const loading = ref(true);
 const saving = ref(false);
 
-const toolbar = [
-  ["bold", "italic", "strike", "underline"],
-  ["quote", "unordered", "ordered", "outdent", "indent"],
-  ["link", "hr"],
-  ["undo", "redo"],
-  [
-    {
-      label: "H",
-      icon: "title",
-      list: "no-icons",
-      options: ["p", "h2", "h3", "h4"],
-    },
+// ================= UPLOAD =================
+function uploadAdapterPlugin(editor: any) {
+  editor.plugins.get("FileRepository").createUploadAdapter = (loader: any) => {
+    return {
+      async upload() {
+        const file = await loader.file;
+
+        const fd = new FormData();
+        fd.append("files", file);
+
+        const res = await api.post("/studio-media/upload", fd);
+        const url = res?.data?.data?.[0]?.url;
+
+        if (!url) throw new Error("Upload failed");
+
+        return { default: url };
+      },
+    };
+  };
+
+  // 👇 THIS PART FIXES THE SIZE AFTER INSERT
+  editor.model.document.on("change:data", () => {
+    const model = editor.model;
+    const root = model.document.getRoot();
+
+    model.change((writer: any) => {
+      for (const child of root.getChildren()) {
+        if (child.name === "imageBlock" && !child.getAttribute("width")) {
+          writer.setAttribute("width", "50%", child);
+        }
+      }
+    });
+  });
+}
+
+// ================= CONFIG =================
+const editorConfig = {
+  licenseKey: "GPL",
+  plugins: [
+    Essentials,
+    Paragraph,
+    Bold,
+    Italic,
+    Link,
+    List,
+    Image,
+    ImageToolbar,
+    ImageUpload,
+    ImageStyle,
+    ImageResize,
+    ImageResizeEditing,
+    ImageResizeHandles,
   ],
-  ["removeFormat"],
-];
 
-const editorDefs = {};
+  toolbar: [
+    "undo",
+    "redo",
+    "|",
+    "bold",
+    "italic",
+    "link",
+    "bulletedList",
+    "numberedList",
+    "|",
+    "imageUpload",
+  ],
 
-// loadStudio supports silent flag so we can control when the global loading hides
-async function loadStudio(t: StudioType, silent = false) {
-  if (!silent) loading.value = true;
+  image: {
+    toolbar: [
+      "imageStyle:inline",
+      "imageStyle:alignLeft",
+      "imageStyle:alignCenter",
+      "imageStyle:alignRight",
+      "|",
+      "resizeImage:25",
+      "resizeImage:50",
+      "resizeImage:75",
+      "resizeImage:original",
+    ],
+  },
+
+  extraPlugins: [uploadAdapterPlugin],
+};
+
+// ================= API =================
+async function loadStudio(t: StudioType) {
+  loading.value = true;
   try {
-    const { data } = await api.get<StudioRow>(`/studio/${t}`);
+    const { data } = await api.get(`/studio/${t}`);
     form.value.description = data?.data?.description || "";
-  } catch (e: any) {
-    if (e?.response?.status === 404) {
-      form.value.description = "";
-    } else {
-      notifyError(e, "Failed to load");
-    }
   } finally {
-    if (!silent) loading.value = false;
+    loading.value = false;
   }
 }
 
@@ -158,19 +192,34 @@ async function save() {
     await api.put(`/studio/admin/${tab.value}`, {
       description: form.value.description || null,
     });
+
     $q.notify({ type: "positive", message: "Saved" });
-  } catch (e: any) {
-    notifyError(e, "Failed to save");
+  } catch {
+    $q.notify({ type: "negative", message: "Error" });
   } finally {
     saving.value = false;
   }
 }
 
-function notifyError(e: any, fallback = "Error") {
-  const msg = e?.response?.data?.error || e?.message || fallback;
-  $q.notify({ type: "negative", message: msg });
-}
-
-// initial load: keep loading true until the first fetch completes
 watch(tab, (t) => loadStudio(t), { immediate: true });
 </script>
+
+<style lang="scss">
+.ck-content {
+  min-height: 300px;
+}
+
+.ck-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ck-content .image {
+  max-width: 100%;
+}
+
+.ck-content .image img {
+  max-width: 100%;
+  height: auto;
+}
+</style>

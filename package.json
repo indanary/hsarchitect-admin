@@ -13,6 +13,8 @@
 		"postinstall": "quasar prepare"
 	},
 	"dependencies": {
+		"@ckeditor/ckeditor5-vue": "^7.3.0",
+		"ckeditor5": "^47.1.0",
 		"@quasar/extras": "^1.16.4",
 		"axios": "^1.11.0",
 		"jwt-decode": "^4.0.0",
