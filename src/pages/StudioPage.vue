@@ -74,6 +74,7 @@ import {
   BlockQuote,
   List,
   Image,
+  ImageBlock,
   ImageToolbar,
   ImageUpload,
   ImageStyle,
@@ -122,8 +123,23 @@ function uploadAdapterPlugin(editor: any) {
 
     model.change((writer: any) => {
       for (const child of root.getChildren()) {
-        if (child.name === "imageBlock" && !child.getAttribute("width")) {
-          writer.setAttribute("width", "50%", child);
+        if (child.name === "imageBlock") {
+          const width = child.getAttribute("width");
+
+          // convert percentage → px (example)
+          if (width && width.includes("%")) {
+            const percent = parseFloat(width);
+
+            // assume base width 600px (your editor width)
+            const px = (percent / 100) * 600;
+
+            writer.setAttribute("width", `${px}px`, child);
+          }
+
+          // default if no width
+          if (!width) {
+            writer.setAttribute("width", "300px", child);
+          }
         }
       }
     });
@@ -145,6 +161,7 @@ const editorConfig = {
     BlockQuote,
     List,
     Image,
+    ImageBlock,
     ImageToolbar,
     ImageUpload,
     ImageStyle,
