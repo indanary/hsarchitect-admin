@@ -1,0 +1,1 @@
+import{b as r,u as i}from"./index--h6_vfO-.js";const h=r(({router:u})=>{const t=i();t.init(),u.beforeEach(e=>{if(e.meta.requiresAuth===!0&&(!t.isAuthed||t.isExpired))return t.logout(),{path:"/login",query:{next:e.fullPath}};if(e.path==="/login"&&t.isAuthed&&!t.isExpired)return{path:"/"}})});export{h as default};
